@@ -42,10 +42,10 @@ Hasil fungsi `inspect_data()`:
 | Aspek | Temuan |
 | --- | --- |
 | Ukuran awal | 205 baris × 30 kolom |
-| Missing values | 17 sel kosong di 7 kolom: `stroke` (4), `horsepower` (3), `price` (3), `transaction_date` (2), `make` (2), `num-of-doors` (2), `horsepower-binned` (1) |
+| Missing values | 17 sel kosong di 7 kolom: stroke (4), horsepower (3), price (3), transaction_date (2), make (2), num-of-doors (2), horsepower-binned (1) |
 | Duplicate records | 4 baris identik (baris 201–204 adalah salinan baris 5, 25, 60, 100) |
-| Tipe data belum sesuai | `transaction_date` masih berupa teks (`str`), bukan tanggal. `num-of-doors` dan `num-of-cylinders` berisi angka yang ditulis sebagai kata (`"two"`, `"four"`) |
-| Kolom lain | Kolom numerik sudah bertipe angka. `length` dan `width` sudah dinormalisasi dari sumbernya (rentang 0–1) |
+| Tipe data belum sesuai | transaction_date masih berupa teks (str), bukan tanggal. num-of-doors dan num-of-cylinders berisi angka yang ditulis sebagai kata ("two", "four") |
+| Kolom lain | Kolom numerik sudah bertipe angka. length dan width sudah dinormalisasi dari sumbernya (rentang 0–1) |
 
 ## Permasalahan yang Ditemukan
 
@@ -53,10 +53,10 @@ Hasil fungsi `inspect_data()`:
 
    | Pola | Contoh | Arti | Jumlah |
    | --- | --- | --- | --- |
-   | `YYYY-MM-DD` | `2025-01-01` | 1 Januari | 51 |
-   | `DD/MM/YYYY` | `02/01/2025` | 2 Januari | 52 |
-   | `MM-DD-YYYY` | `01-03-2025` | 3 Januari | 50 |
-   | `DD-Mon-YYYY` | `04-Jan-2025` | 4 Januari | 50 |
+   | YYYY-MM-DD | 2025-01-01 | 1 Januari | 51 |
+   | DD/MM/YYYY | 02/01/2025 | 2 Januari | 52 |
+   | MM-DD-YYYY | 01-03-2025 | 3 Januari | 50 |
+   | DD-Mon-YYYY | 04-Jan-2025 | 4 Januari | 50 |
 
    Format `MM-DD-YYYY` terbukti dari nilai seperti `02-16-2025` (tidak ada bulan ke-16). Tanggal di dataset berurutan per hari mengikuti urutan baris.
 
@@ -64,10 +64,10 @@ Hasil fungsi `inspect_data()`:
 
    | Kolom | Nilai bermasalah | Seharusnya |
    | --- | --- | --- |
-   | `make` | `ALFA-ROMERO`, `Audi`, `BMW`, `"dodge  "`, `"mercury  "`, `"porsche  "` | huruf kecil, tanpa spasi |
-   | `body-style` | `SEDAN`, `Sedan` | `sedan` |
-   | `drive-wheels` | `RWD`, `AWD` | `rwd`, `4wd` |
-   | `fuel-system` | `MPFI`, `Mpfi` | `mpfi` |
+   | make | ALFA-ROMERO, Audi, BMW, "dodge  ", "mercury  ", "porsche  " | huruf kecil, tanpa spasi |
+   | body-style | SEDAN, Sedan | sedan |
+   | drive-wheels | RWD, AWD | rwd, 4wd |
+   | fuel-system | MPFI, Mpfi | mpfi |
 
 3. **4 baris duplikat** yang identik di semua kolom.
 4. **Missing values** di 7 kolom (lihat tabel kondisi awal).
@@ -80,17 +80,17 @@ Fungsi `clean_data()` menjalankan langkah-langkah berikut secara berurutan:
 
 | # | Kolom | Masalah | Metode | Alasan |
 | --- | --- | --- | --- | --- |
-| 1 | `make`, `body-style`, `drive-wheels`, `fuel-system` (dan kolom kategorikal lain) | Huruf dan spasi tidak konsisten | `str.strip()` + `str.lower()`. `AWD` dipetakan ke `4wd` | Agar satu kategori tidak terhitung sebagai beberapa kategori. `AWD` dan `4wd` sama-sama berarti semua roda menggerakkan, dan `4wd` adalah label baku di dataset |
-| 2 | `transaction_date` | Teks dengan 4 format | Format dikenali dari pola setiap nilai (regex), lalu di-parse dengan format yang sesuai menjadi `datetime` | Parser otomatis bisa salah membaca `01-03-2025` sebagai 1 Maret. Dengan pola eksplisit hasilnya pasti benar |
-| 3 | Semua kolom | 4 baris duplikat | `drop_duplicates()`, dijalankan setelah langkah 1–2 | Data ganda membuat statistik dan model bias. Penyeragaman dilakukan lebih dulu agar duplikat yang hanya berbeda penulisan ikut terdeteksi |
-| 4 | `fuel-system` | Mobil diesel dengan `mpfi` | Diganti dengan sistem bahan bakar dominan pada mobil diesel (`idi`) | Kombinasi diesel dengan `mpfi` tidak ada di data lain. Semua mobil diesel lain memakai `idi` |
-| 5 | `price` | 3 kosong | **Baris dihapus** | `price` adalah target. Mengisi target dengan tebakan akan mengajari model nilai palsu. Yang hilang hanya 3 baris (1,5%) |
-| 6 | `transaction_date` | 2 kosong | Interpolasi dari tanggal sebelum dan sesudahnya | Tanggal berurutan harian, sehingga nilai yang hilang bisa ditentukan dengan pasti (mis. di antara 9 dan 11 Februari → 10 Februari) |
-| 7 | `make` | 1 kosong (setelah duplikat dihapus) | Dicari mobil lain dengan spesifikasi identik (`wheel-base`, `engine-size`, `horsepower`, `engine-type`, `fuel-system`, `bore`). Kalau tidak ada yang cocok, diisi `unknown` | Mobil tanpa merek ini spesifikasinya sama persis dengan Nissan di baris sebelahnya (wheel-base 100.4, mesin 181 cc, 152 hp, harga 13.499), sehingga diisi `nissan` |
-| 8 | `num-of-doors` | 2 kosong | Modus per `body-style` | Keduanya sedan, dan sedan di dataset ini paling banyak berpintu empat (`four`). Lebih tepat daripada modus keseluruhan |
-| 9 | `stroke` | 4 kosong | Median (3.29) | Data numerik kontinu. Median tidak terpengaruh outlier, dan yang hilang sedikit (2%) sehingga tidak perlu membuang baris |
-| 10 | `horsepower` | 3 kosong | Median per kelompok `horsepower-binned` | Kelas tenaga (Low/Medium/High) tetap tersedia, sehingga nilai isian tetap konsisten dengan kelasnya |
-| 11 | `horsepower-binned` | 1 kosong | Ditentukan dari `horsepower` memakai batas kelas yang ada di data | Kelas adalah turunan langsung dari horsepower (262 hp → `High`) |
+| 1 | make, body-style, drive-wheels, fuel-system (dan kolom kategorikal lain) | Huruf dan spasi tidak konsisten | str.strip() + str.lower(). AWD dipetakan ke 4wd | Agar satu kategori tidak terhitung sebagai beberapa kategori. AWD dan 4wd sama-sama berarti semua roda menggerakkan, dan 4wd adalah label baku di dataset |
+| 2 | transaction_date | Teks dengan 4 format | Format dikenali dari pola setiap nilai (regex), lalu di-parse dengan format yang sesuai menjadi datetime | Parser otomatis bisa salah membaca 01-03-2025 sebagai 1 Maret. Dengan pola eksplisit hasilnya pasti benar |
+| 3 | Semua kolom | 4 baris duplikat | drop_duplicates(), dijalankan setelah langkah 1–2 | Data ganda membuat statistik dan model bias. Penyeragaman dilakukan lebih dulu agar duplikat yang hanya berbeda penulisan ikut terdeteksi |
+| 4 | fuel-system | Mobil diesel dengan mpfi | Diganti dengan sistem bahan bakar dominan pada mobil diesel (idi) | Kombinasi diesel dengan mpfi tidak ada di data lain. Semua mobil diesel lain memakai idi |
+| 5 | price | 3 kosong | **Baris dihapus** | price adalah target. Mengisi target dengan tebakan akan mengajari model nilai palsu. Yang hilang hanya 3 baris (1,5%) |
+| 6 | transaction_date | 2 kosong | Interpolasi dari tanggal sebelum dan sesudahnya | Tanggal berurutan harian, sehingga nilai yang hilang bisa ditentukan dengan pasti (mis. di antara 9 dan 11 Februari → 10 Februari) |
+| 7 | make | 1 kosong (setelah duplikat dihapus) | Dicari mobil lain dengan spesifikasi identik (wheel-base, engine-size, horsepower, engine-type, fuel-system, bore). Kalau tidak ada yang cocok, diisi unknown | Mobil tanpa merek ini spesifikasinya sama persis dengan Nissan di baris sebelahnya (wheel-base 100.4, mesin 181 cc, 152 hp, harga 13.499), sehingga diisi nissan |
+| 8 | num-of-doors | 2 kosong | Modus per body-style | Keduanya sedan, dan sedan di dataset ini paling banyak berpintu empat (four). Lebih tepat daripada modus keseluruhan |
+| 9 | stroke | 4 kosong | Median (3.29) | Data numerik kontinu. Median tidak terpengaruh outlier, dan yang hilang sedikit (2%) sehingga tidak perlu membuang baris |
+| 10 | horsepower | 3 kosong | Median per kelompok horsepower-binned | Kelas tenaga (Low/Medium/High) tetap tersedia, sehingga nilai isian tetap konsisten dengan kelasnya |
+| 11 | horsepower-binned | 1 kosong | Ditentukan dari horsepower memakai batas kelas yang ada di data | Kelas adalah turunan langsung dari horsepower (262 hp → High) |
 
 Kolom yang diubah: `make`, `body-style`, `drive-wheels`, `fuel-system`, `transaction_date`, `num-of-doors`, `stroke`, `horsepower`, `horsepower-binned`.
 
@@ -102,12 +102,12 @@ Tidak ada outlier numerik yang dihapus. Nilai ekstrem seperti `compression-ratio
 | --- | --- | --- |
 | Jumlah baris | 205 | 198 |
 | Duplicate records | 4 | 0 (4 dihapus) |
-| Baris tanpa `price` | 3 | 0 (3 dihapus) |
+| Baris tanpa price | 3 | 0 (3 dihapus) |
 | Total missing values | 17 | 0 |
-| Variasi nilai `make` | 27 (+ kosong) | 22 |
-| Variasi nilai `body-style` | 7 | 5 |
-| Variasi nilai `drive-wheels` | 5 | 3 |
-| Variasi nilai `fuel-system` | 10 | 8 |
+| Variasi nilai make | 27 (+ kosong) | 22 |
+| Variasi nilai body-style | 7 | 5 |
+| Variasi nilai drive-wheels | 5 | 3 |
+| Variasi nilai fuel-system | 10 | 8 |
 
 ## Data Transformation
 
@@ -119,9 +119,9 @@ Rumus: `x_scaled = (x − min) / (max − min)`, menghasilkan rentang 0–1.
 
 | Kolom asli | Rentang asli | Kolom baru |
 | --- | --- | --- |
-| `horsepower` | 48 – 262 | `horsepower-scaled` |
-| `engine-size` | 61 – 326 | `engine-size-scaled` |
-| `curb-weight` | 1.488 – 4.066 | `curb-weight-scaled` |
+| horsepower | 48 – 262 | horsepower-scaled |
+| engine-size | 61 – 326 | engine-size-scaled |
+| curb-weight | 1.488 – 4.066 | curb-weight-scaled |
 
 **Alasan pemilihan kolom:** ketiganya adalah fitur numerik penting untuk memprediksi harga, tetapi skalanya sangat berbeda (puluhan, ratusan, ribuan). Tanpa normalisasi, algoritma berbasis jarak atau gradien akan didominasi oleh `curb-weight`. Kolom `length` dan `width` tidak dinormalisasi ulang karena sudah berada di rentang 0–1 sejak dari sumbernya.
 
@@ -137,8 +137,8 @@ Rumus: `x_scaled = (x − min) / (max − min)`, menghasilkan rentang 0–1.
 
 | Kolom asli | Kolom baru |
 | --- | --- |
-| `body-style` | `body-style-convertible`, `body-style-hardtop`, `body-style-hatchback`, `body-style-sedan`, `body-style-wagon` |
-| `drive-wheels` | `drive-wheels-4wd`, `drive-wheels-fwd`, `drive-wheels-rwd` |
+| body-style | body-style-convertible, body-style-hardtop, body-style-hatchback, body-style-sedan, body-style-wagon |
+| drive-wheels | drive-wheels-4wd, drive-wheels-fwd, drive-wheels-rwd |
 
 **Alasan:** keduanya kategori **nominal** (tidak punya urutan) dengan sedikit pilihan. Jika diubah langsung menjadi angka 0, 1, 2, model akan salah menganggap ada urutan di antaranya. One-hot juga konsisten dengan kolom `diesel`/`gas` yang sudah ada di dataset.
 
@@ -158,9 +158,9 @@ Rumus: `x_scaled = (x − min) / (max − min)`, menghasilkan rentang 0–1.
 
 | Kolom asli | Kolom baru | Mapping |
 | --- | --- | --- |
-| `num-of-doors` | `num-of-doors-encoded` | two → 2, four → 4 |
-| `num-of-cylinders` | `num-of-cylinders-encoded` | two → 2, three → 3, four → 4, five → 5, six → 6, eight → 8, twelve → 12 |
-| `horsepower-binned` | `horsepower-binned-encoded` | Low → 0, Medium → 1, High → 2 |
+| num-of-doors | num-of-doors-encoded | two → 2, four → 4 |
+| num-of-cylinders | num-of-cylinders-encoded | two → 2, three → 3, four → 4, five → 5, six → 6, eight → 8, twelve → 12 |
+| horsepower-binned | horsepower-binned-encoded | Low → 0, Medium → 1, High → 2 |
 
 **Alasan:** ketiganya punya urutan alami. Jumlah pintu dan silinder sebenarnya angka yang ditulis sebagai kata, sehingga diubah ke angka aslinya. Kelas tenaga diurutkan dari Low ke High.
 
@@ -206,11 +206,11 @@ Terminal akan menampilkan hasil inspeksi, setiap langkah cleaning, contoh hasil 
 
 | Tahap | Function | Proses |
 | --- | --- | --- |
-| **Extract** | `load_data()` | Membaca CSV dari `data/raw/` |
-| **Transform** | `inspect_data()` | Memeriksa struktur, tipe data, missing values, duplikat, nilai unik, dan format tanggal |
-| | `clean_data()` | Menyeragamkan kategori, memperbaiki tipe tanggal, menghapus duplikat, memperbaiki nilai tidak wajar, dan menangani missing values |
-| | `transform_data()` | Min-Max Scaling, One-Hot Encoding, dan Ordinal Encoding |
-| **Load** | `save_data()` | Menyimpan hasil ke `data/processed/` |
+| **Extract** | load_data() | Membaca CSV dari data/raw/ |
+| **Transform** | inspect_data() | Memeriksa struktur, tipe data, missing values, duplikat, nilai unik, dan format tanggal |
+| | clean_data() | Menyeragamkan kategori, memperbaiki tipe tanggal, menghapus duplikat, memperbaiki nilai tidak wajar, dan menangani missing values |
+| | transform_data() | Min-Max Scaling, One-Hot Encoding, dan Ordinal Encoding |
+| **Load** | save_data() | Menyimpan hasil ke data/processed/ |
 
 Semua function dijalankan berurutan oleh `run_pipeline()` dalam satu kali eksekusi.
 
